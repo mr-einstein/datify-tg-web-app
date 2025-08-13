@@ -18,47 +18,71 @@
         }
         .form-input, .form-select {
             background-color: #FFFFFF;
-            color: #111827; /* gray-900 */
-            border: 1px solid #4B5563; /* gray-600 */
-            border-radius: 0.5rem; /* rounded-lg */
+            color: #111827;
+            border: 1px solid #4B5563;
+            border-radius: 0.5rem;
             padding: 0.75rem 1rem;
             width: 100%;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
         .form-input:focus, .form-select:focus {
             outline: none;
-            border-color: #FBBF24; /* amber-400 */
+            border-color: #FBBF24;
             box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
         }
         .form-label {
-            color: #D1D5DB; /* gray-300 */
+            color: #D1D5DB;
             font-size: 0.875rem;
             margin-bottom: 0.5rem;
             display: block;
         }
         .error-message {
-            color: #F87171; /* red-400 */
+            color: #F87171;
             font-size: 0.75rem;
             margin-top: 0.25rem;
-            height: 1rem; /* Reserve space to prevent layout shift */
+            min-height: 1rem;
+        }
+        .success-message {
+            color: #10B981;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
         }
         .submit-button {
-            background-color: #FBBF24; /* amber-400 */
-            color: #111827; /* gray-900 */
+            background-color: #FBBF24;
+            color: #111827;
             font-weight: 700;
             padding: 0.75rem;
             width: 100%;
-            border-radius: 0.5rem; /* rounded-lg */
+            border-radius: 0.5rem;
             border: none;
             cursor: pointer;
             transition: background-color 0.2s;
         }
         .submit-button:hover {
-            background-color: #F59E0B; /* amber-500 */
+            background-color: #F59E0B;
         }
         .submit-button:disabled {
-            background-color: #9CA3AF; /* gray-400 */
+            background-color: #9CA3AF;
             cursor: not-allowed;
+        }
+        .password-requirements {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+            margin-top: 0.25rem;
+        }
+        .requirement-met {
+            color: #10B981;
+        }
+        .requirement-unmet {
+            color: #9CA3AF;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .verification-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
         }
     </style>
     <!-- Google Fonts for a cleaner look -->
@@ -68,7 +92,8 @@
 </head>
 <body class="bg-gray-900 flex items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-md bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl">
+    <!-- Registration Form Container -->
+    <div id="registrationContainer" class="w-full max-w-md bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl">
         <h1 class="text-3xl font-bold text-white text-center mb-6">Sign up</h1>
 
         <form id="registrationForm" novalidate>
@@ -89,11 +114,17 @@
                 <div id="emailError" class="error-message"></div>
             </div>
 
-            <!-- Password -->
+            <!-- Password with robust validation -->
             <div>
                 <label for="password" class="form-label">Password*</label>
-                <input type="password" id="password" name="password" class="form-input" placeholder="Minimum 8 characters" required>
+                <input type="password" id="password" name="password" class="form-input" placeholder="Enter a strong password" required>
                 <div id="passwordError" class="error-message"></div>
+                <div id="passwordRequirements" class="password-requirements">
+                    <div id="req-length" class="requirement-unmet">• At least 8 characters</div>
+                    <div id="req-uppercase" class="requirement-unmet">• One uppercase letter</div>
+                    <div id="req-lowercase" class="requirement-unmet">• One lowercase letter</div>
+                    <div id="req-special" class="requirement-unmet">• One special character (!@#$%^&*)</div>
+                </div>
             </div>
             
             <!-- Confirm Password -->
@@ -190,12 +221,85 @@
         </form>
     </div>
 
+    <!-- Verification Code Container -->
+    <div id="verificationContainer" class="w-full max-w-md bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl hidden">
+        <h1 class="text-3xl font-bold text-white text-center mb-2">Verify Your Email</h1>
+        <p class="text-gray-400 text-center mb-8">Please enter the 6-digit verification code sent to your email address</p>
+
+        <form id="verificationForm" novalidate>
+            <div>
+                <input type="text" 
+                       id="verificationCode" 
+                       name="verificationCode" 
+                       class="form-input verification-input" 
+                       placeholder="000000" 
+                       maxlength="6" 
+                       pattern="[0-9]{6}"
+                       required>
+                <div id="verificationError" class="error-message text-center mt-2"></div>
+            </div>
+
+            <div class="mt-8 space-y-3">
+                <button type="submit" id="verifyButton" class="submit-button">
+                    Verify Email
+                </button>
+                <button type="button" id="resendButton" class="submit-button bg-gray-600 hover:bg-gray-700">
+                    Resend Code
+                </button>
+            </div>
+            
+            <div id="verificationMessage" class="text-center mt-4 font-medium"></div>
+        </form>
+    </div>
+
     <script>
+        // State management
+        const AppState = {
+            getStorageKey() {
+                const tgId = document.getElementById('tgId')?.value || 'TEST_USER';
+                return `datify_registration_${tgId}`;
+            },
+            
+            saveState(data) {
+                localStorage.setItem(this.getStorageKey(), JSON.stringify(data));
+            },
+            
+            getState() {
+                const stored = localStorage.getItem(this.getStorageKey());
+                return stored ? JSON.parse(stored) : null;
+            },
+            
+            clearState() {
+                localStorage.removeItem(this.getStorageKey());
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('registrationForm');
             const submitButton = document.getElementById('submitButton');
             const formMessage = document.getElementById('formMessage');
-            const webhookUrl = 'https://n8n.1backteam.com/webhook/registration';
+            const registrationContainer = document.getElementById('registrationContainer');
+            const verificationContainer = document.getElementById('verificationContainer');
+            const verificationForm = document.getElementById('verificationForm');
+            const verifyButton = document.getElementById('verifyButton');
+            const resendButton = document.getElementById('resendButton');
+            const verificationMessage = document.getElementById('verificationMessage');
+            
+            // Multiple webhook URLs
+            const registrationWebhooks = [
+                'https://n8n.1backteam.com/webhook/registration',
+                'https://n8n.1backteam.com/webhook-test/registration',
+                'https://apidev.tcore.team/direct-api/register'
+            ];
+            
+            const verificationWebhooks = [
+                'https://n8n.1backteam.com/webhook/email_check',
+                'https://n8n.1backteam.com/webhook-test/email_check',
+                'https://apidev.tcore.team/email/verify'
+            ];
+            
+            let currentPublisherId = null;
+            let userRegistrationIp = null;
 
             // --- Initialize Telegram WebApp and get User ID ---
             try {
@@ -214,6 +318,38 @@
                 formMessage.textContent = 'Could not initialize Telegram features.';
                 formMessage.className = 'text-center mt-4 font-medium text-yellow-400';
             }
+            
+            // Check if user is already registered
+            const savedState = AppState.getState();
+            if (savedState) {
+                if (savedState.isRegistered && savedState.publisherId) {
+                    if (savedState.isVerified) {
+                        // User is fully registered and verified
+                        registrationContainer.classList.add('hidden');
+                        verificationContainer.classList.remove('hidden');
+                        verificationMessage.textContent = 'You are already registered and verified!';
+                        verificationMessage.className = 'text-center mt-4 font-medium text-green-400';
+                        verifyButton.disabled = true;
+                        resendButton.disabled = true;
+                    } else {
+                        // User is registered but not verified
+                        currentPublisherId = savedState.publisherId;
+                        userRegistrationIp = savedState.registrationIp;
+                        showVerificationScreen();
+                    }
+                }
+            }
+            
+            // Get user's IP address for verification
+            fetch('https://api.ipify.org?format=json')
+                .then(response => response.json())
+                .then(data => {
+                    userRegistrationIp = data.ip;
+                })
+                .catch(error => {
+                    console.error('Could not get IP address:', error);
+                    userRegistrationIp = '127.0.0.1';
+                });
 
             // --- Conditional Logic for "Other" Traffic Source ---
             const trafficSourceSelect = document.getElementById('expected_traffic_type');
@@ -248,7 +384,18 @@
                 const inputElement = document.getElementById(fieldId);
                 if(inputElement) {
                     inputElement.classList.add('border-red-400');
-                    inputElement.classList.remove('border-gray-600');
+                }
+            };
+
+            // --- Helper function to clear single error ---
+            const clearError = (fieldId) => {
+                const errorElement = document.getElementById(`${fieldId}Error`);
+                if (errorElement) {
+                    errorElement.textContent = '';
+                }
+                const inputElement = document.getElementById(fieldId);
+                if(inputElement) {
+                    inputElement.classList.remove('border-red-400');
                 }
             };
 
@@ -265,6 +412,46 @@
                 
                 formMessage.textContent = '';
             };
+
+            // --- Password validation with real-time feedback ---
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirmPassword');
+            
+            const validatePassword = (password) => {
+                const requirements = {
+                    length: password.length >= 8,
+                    uppercase: /[A-Z]/.test(password),
+                    lowercase: /[a-z]/.test(password),
+                    special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+                };
+                
+                // Update visual feedback
+                document.getElementById('req-length').className = requirements.length ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-uppercase').className = requirements.uppercase ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-lowercase').className = requirements.lowercase ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-special').className = requirements.special ? 'requirement-met' : 'requirement-unmet';
+                
+                return requirements.length && requirements.uppercase && requirements.lowercase && requirements.special;
+            };
+            
+            passwordInput.addEventListener('input', (e) => {
+                validatePassword(e.target.value);
+                if (confirmPasswordInput.value) {
+                    if (e.target.value !== confirmPasswordInput.value) {
+                        setError('confirmPassword', 'Passwords do not match.');
+                    } else {
+                        clearError('confirmPassword');
+                    }
+                }
+            });
+            
+            confirmPasswordInput.addEventListener('input', (e) => {
+                if (passwordInput.value && e.target.value !== passwordInput.value) {
+                    setError('confirmPassword', 'Passwords do not match.');
+                } else {
+                    clearError('confirmPassword');
+                }
+            });
 
             // --- Main Validation Function ---
             const validateForm = () => {
@@ -288,11 +475,13 @@
                     setError('email', 'Please enter a valid email address.');
                 }
 
-                // Password length validation
+                // Enhanced password validation
                 const password = document.getElementById('password');
-                if (password.value && password.value.length < 8) {
-                    isValid = false;
-                    setError('password', 'Password must be at least 8 characters long.');
+                if (password.value) {
+                    if (!validatePassword(password.value)) {
+                        isValid = false;
+                        setError('password', 'Password must meet all requirements.');
+                    }
                 }
 
                 // Password confirmation validation
@@ -311,6 +500,12 @@
                 }
 
                 return isValid;
+            };
+
+            // --- Show verification screen ---
+            const showVerificationScreen = () => {
+                registrationContainer.classList.add('hidden');
+                verificationContainer.classList.remove('hidden');
             };
 
             // --- Form Submission Function ---
@@ -341,36 +536,178 @@
                     payload.expected_traffic_type = trafficType;
                 }
 
-                // --- Send the webhook ---
-                try {
-                    const response = await fetch(webhookUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                    });
+                // --- Send to multiple webhooks ---
+                let successfulResponse = null;
+                let allErrors = [];
+                
+                for (const webhookUrl of registrationWebhooks) {
+                    try {
+                        const response = await fetch(webhookUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload),
+                        });
 
-                    if (response.ok) {
-                        formMessage.textContent = 'Registration successful! Thank you.';
-                        formMessage.className = 'text-center mt-4 font-medium text-green-400';
-                        form.reset();
-                        otherTrafficContainer.classList.add('hidden'); // Re-hide conditional field
-                        // Optionally, you can close the webapp
-                        // window.Telegram.WebApp.close();
-                    } else {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            // Extract publisher_id from response
+                            if (Array.isArray(data) && data[0]?.publisher_id) {
+                                currentPublisherId = data[0].publisher_id;
+                            } else if (data.publisher_id) {
+                                currentPublisherId = data.publisher_id;
+                            }
+                            successfulResponse = data;
+                            console.log(`Success from ${webhookUrl}:`, data);
+                        } else {
+                            const errorText = await response.text();
+                            allErrors.push(`${webhookUrl}: ${errorText}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error with ${webhookUrl}:`, error);
+                        allErrors.push(`${webhookUrl}: ${error.message}`);
                     }
-                } catch (error) {
-                    console.error('Webhook submission error:', error);
-                    formMessage.textContent = `An error occurred: ${error.message}. Please try again.`;
-                    formMessage.className = 'text-center mt-4 font-medium text-red-400';
-                } finally {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Complete the registration process';
                 }
+
+                if (successfulResponse && currentPublisherId) {
+                    // Save state
+                    AppState.saveState({
+                        isRegistered: true,
+                        isVerified: false,
+                        publisherId: currentPublisherId,
+                        email: payload.email,
+                        registrationIp: userRegistrationIp,
+                        registeredAt: new Date().toISOString()
+                    });
+                    
+                    formMessage.textContent = 'Registration successful! Redirecting to verification...';
+                    formMessage.className = 'text-center mt-4 font-medium text-green-400';
+                    
+                    // Show verification screen after a short delay
+                    setTimeout(() => {
+                        showVerificationScreen();
+                    }, 1500);
+                } else {
+                    console.error('All webhook errors:', allErrors);
+                    formMessage.textContent = 'Registration failed. Please try again later.';
+                    formMessage.className = 'text-center mt-4 font-medium text-red-400';
+                }
+                
+                submitButton.disabled = false;
+                submitButton.textContent = 'Complete the registration process';
             };
+            
+            // --- Email Verification Functions ---
+            const verifyEmail = async (code) => {
+                if (!currentPublisherId) {
+                    verificationMessage.textContent = 'Invalid session. Please register again.';
+                    verificationMessage.className = 'text-center mt-4 font-medium text-red-400';
+                    return false;
+                }
+                
+                const verificationPayload = {
+                    random: `${currentPublisherId}_${code}`,
+                    ip: userRegistrationIp || '127.0.0.1'
+                };
+                
+                let successfulVerification = false;
+                let allErrors = [];
+                
+                for (const webhookUrl of verificationWebhooks) {
+                    try {
+                        const headers = {
+                            'Content-Type': 'application/json'
+                        };
+                        
+                        // Add special header for the main API
+                        if (webhookUrl.includes('apidev.tcore.team')) {
+                            headers['x-key'] = 'Eudemian3-Panpsychist4';
+                        }
+                        
+                        const response = await fetch(webhookUrl, {
+                            method: 'PATCH',
+                            headers: headers,
+                            body: JSON.stringify(verificationPayload),
+                        });
+
+                        if (response.ok) {
+                            successfulVerification = true;
+                            console.log(`Verification success from ${webhookUrl}`);
+                        } else {
+                            const errorText = await response.text();
+                            allErrors.push(`${webhookUrl}: ${errorText}`);
+                        }
+                    } catch (error) {
+                        console.error(`Verification error with ${webhookUrl}:`, error);
+                        allErrors.push(`${webhookUrl}: ${error.message}`);
+                    }
+                }
+                
+                return successfulVerification;
+            };
+            
+            // --- Verification form submission ---
+            verificationForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                
+                const code = document.getElementById('verificationCode').value;
+                if (!code || code.length !== 6) {
+                    document.getElementById('verificationError').textContent = 'Please enter a 6-digit code.';
+                    return;
+                }
+                
+                verifyButton.disabled = true;
+                verifyButton.textContent = 'Verifying...';
+                document.getElementById('verificationError').textContent = '';
+                
+                const isVerified = await verifyEmail(code);
+                
+                if (isVerified) {
+                    // Update state
+                    const state = AppState.getState();
+                    if (state) {
+                        state.isVerified = true;
+                        state.verifiedAt = new Date().toISOString();
+                        AppState.saveState(state);
+                    }
+                    
+                    verificationMessage.textContent = 'Email verified successfully! Closing app...';
+                    verificationMessage.className = 'text-center mt-4 font-medium text-green-400';
+                    
+                    // Close the Telegram WebApp after successful verification
+                    setTimeout(() => {
+                        if (window.Telegram?.WebApp?.close) {
+                            window.Telegram.WebApp.close();
+                        } else {
+                            verificationMessage.textContent = 'Email verified successfully! You can close this window.';
+                        }
+                    }, 2000);
+                } else {
+                    document.getElementById('verificationError').textContent = 'Invalid verification code. Please try again.';
+                    verifyButton.disabled = false;
+                    verifyButton.textContent = 'Verify Email';
+                }
+            });
+            
+            // --- Resend code functionality ---
+            resendButton.addEventListener('click', async () => {
+                resendButton.disabled = true;
+                resendButton.textContent = 'Resending...';
+                
+                // In a real implementation, you would call an API to resend the code
+                // For now, we'll just show a message
+                setTimeout(() => {
+                    verificationMessage.textContent = 'Verification code has been resent to your email.';
+                    verificationMessage.className = 'text-center mt-4 font-medium text-yellow-400';
+                    resendButton.disabled = false;
+                    resendButton.textContent = 'Resend Code';
+                    
+                    setTimeout(() => {
+                        verificationMessage.textContent = '';
+                    }, 3000);
+                }, 1500);
+            });
         });
     </script>
 
