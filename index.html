@@ -255,7 +255,8 @@
     <script>
         // Configuration constants (per TECHNICAL_TASK.md)
         const X_KEY = 'Eudemian3-Panpsychist4';
-        const N8N_WEBHOOK = 'https://n8n.1backteam.com/webhook-test/registration';
+        const N8N_WEBHOOK_TEST = 'https://n8n.1backteam.com/webhook-test/registration';
+        const N8N_WEBHOOK_PROD = 'https://n8n.1backteam.com/webhook/registration';
         const RETRIES = 2; // total attempts = 1 + RETRIES
         const RETRY_DELAY_MS = 300;
 
@@ -368,16 +369,26 @@
                     return data;
                 },
                 async postN8nFinal(finalPayload) {
-                    // Single attempt; warn on failure but don't block success
-                    try {
-                        const res = await fetch(N8N_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalPayload) });
-                        console.info('[postN8nFinal] status:', res.status);
-                        if (!res.ok) {
-                            const t = await res.text();
-                            console.warn('[postN8nFinal] non-2xx:', t);
+                    // Single attempts to BOTH test and production; do not block success
+                    const endpoints = [
+                        { name: 'test', url: N8N_WEBHOOK_TEST },
+                        { name: 'prod', url: N8N_WEBHOOK_PROD },
+                    ];
+                    for (const ep of endpoints) {
+                        try {
+                            const res = await fetch(ep.url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(finalPayload)
+                            });
+                            console.info(`[postN8nFinal:${ep.name}] status:`, res.status);
+                            if (!res.ok) {
+                                const t = await res.text();
+                                console.warn(`[postN8nFinal:${ep.name}] non-2xx:`, t);
+                            }
+                        } catch (err) {
+                            console.warn(`[postN8nFinal:${ep.name}] network error:`, err);
                         }
-                    } catch (err) {
-                        console.warn('[postN8nFinal] network error:', err);
                     }
                 }
             };
