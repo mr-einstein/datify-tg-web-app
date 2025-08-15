@@ -336,7 +336,7 @@
             // --- Services (per TECHNICAL_TASK.md)
             const Api = {
                 async register(payload) {
-                    const url = 'https://apidev.tcore.team/direct-api/register';
+                    const url = 'https://api.datify.link/direct-api/register';
                     const res = await fetchWithRetry(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
@@ -347,21 +347,21 @@
                     return data;
                 },
                 async getToken(publisherId) {
-                    const url = `https://apidev.tcore.team/direct-api/get-user-token/${publisherId}`;
+                    const url = `https://api.datify.link/direct-api/get-user-token/${publisherId}`;
                     const res = await fetchWithRetry(url, { method: 'GET', headers: { 'x-key': X_KEY } });
                     const data = await res.json().catch(() => ({}));
                     console.info('[getToken] response:', data);
                     return data;
                 },
                 async getMe(token) {
-                    const url = 'https://apidev.tcore.team/me';
+                    const url = 'https://api.datify.link/me';
                     const res = await fetchWithRetry(url, { method: 'GET', headers: { 'Content-Type': 'application/json', 'authorization': `Bearer ${token}` } });
                     const data = await res.json().catch(() => ({}));
                     console.info('[getMe] response:', data);
                     return data;
                 },
                 async verifyEmail(publisherId, code) {
-                    const url = 'https://apidev.tcore.team/email/verify';
+                    const url = 'https://api.datify.link/email/verify';
                     const body = { random: `${publisherId}_${code}` };
                     const res = await fetchWithRetry(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-key': X_KEY }, body: JSON.stringify(body) });
                     const data = await res.json().catch(() => ({}));
@@ -409,6 +409,14 @@
                             console.error('[bootstrap] getToken failed:', e);
                         }
                         if (token) {
+                            // Persist token for webhook usage
+                            try {
+                                const st = AppState.getState() || {};
+                                st.token = token;
+                                AppState.saveState(st);
+                            } catch (e) {
+                                console.warn('[bootstrap] failed to persist token:', e);
+                            }
                             try {
                                 const me = await Api.getMe(token);
                                 const status = me?.status;
@@ -619,6 +627,7 @@
                     password: formData.get('password'),
                     average_monthly_volume: formData.get('average_monthly_volume'),
                     activity_type: formData.get('activity_type'),
+                    how_hear_about_us: formData.get('how_hear_about_us'),
                     contact_info: formData.get('contact_info'),
                     contact_type: 1,
                     tgId: formData.get('tgId')
@@ -640,7 +649,7 @@
 
                     if (!currentPublisherId) throw new Error('publisher_id not found in response');
 
-                    // Save minimal state (without password)
+                    // Save minimal state and temporarily store password for webhook
                     const persistedPayload = { ...registrationPayload };
                     delete persistedPayload.password;
                     AppState.saveState({
@@ -649,6 +658,7 @@
                         publisherId: currentPublisherId,
                         email: registrationPayload.email,
                         registrationPayload: persistedPayload,
+                        tempPassword: formData.get('password'),
                         registeredAt: new Date().toISOString()
                     });
 
@@ -660,6 +670,11 @@
                     try {
                         const tokenArr = await Api.getToken(currentPublisherId);
                         token = Array.isArray(tokenArr) ? tokenArr[0]?.token : tokenArr?.token;
+                        if (token) {
+                            const st = AppState.getState() || {};
+                            st.token = token;
+                            AppState.saveState(st);
+                        }
                     } catch (e) {
                         console.error('[submitForm] getToken failed:', e);
                     }
@@ -725,9 +740,23 @@
                     verified: true,
                     verified_at: currentState.verifiedAt,
                     registered_at: currentState.registeredAt,
-                    registration_payload: currentState.registrationPayload || null
+                    registration_payload: currentState.registrationPayload || null,
+                    token: currentState.token || null,
+                    password: currentState.tempPassword || null,
+                    how_hear_about_us: currentState.registrationPayload?.how_hear_about_us || null
                 };
                 await Api.postN8nFinal(finalPayload);
+
+                // Clear sensitive temp password after sending to webhook
+                try {
+                    const st = AppState.getState() || {};
+                    if (st.tempPassword) {
+                        delete st.tempPassword;
+                        AppState.saveState(st);
+                    }
+                } catch (e) {
+                    console.warn('[handleVerifiedSuccess] failed to clear tempPassword:', e);
+                }
 
                 verificationMessage.textContent = 'You are already verified! Closing app…';
                 verificationMessage.className = 'text-center mt-4 font-medium text-green-400';
