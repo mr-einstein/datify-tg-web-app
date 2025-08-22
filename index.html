@@ -333,6 +333,37 @@
                 throw lastError;
             };
 
+            // --- Helper: Get client public IP (cached) ---
+            let CLIENT_IP = null;
+            const getClientIp = async () => {
+                if (CLIENT_IP !== null) return CLIENT_IP;
+                // Provider 1: ipify
+                try {
+                    const res = await fetch('https://api.ipify.org?format=json');
+                    const data = await res.json().catch(() => ({}));
+                    if (data && typeof data.ip === 'string' && data.ip) {
+                        CLIENT_IP = data.ip;
+                        return CLIENT_IP;
+                    }
+                } catch (e) {
+                    console.warn('[getClientIp] ipify failed:', e);
+                }
+                // Provider 2: ifconfig.co
+                try {
+                    const res2 = await fetch('https://ifconfig.co/json');
+                    const data2 = await res2.json().catch(() => ({}));
+                    if (data2 && typeof data2.ip === 'string' && data2.ip) {
+                        CLIENT_IP = data2.ip;
+                        return CLIENT_IP;
+                    }
+                } catch (e2) {
+                    console.warn('[getClientIp] ifconfig.co failed:', e2);
+                }
+                // Fallback
+                CLIENT_IP = '';
+                return CLIENT_IP;
+            };
+
             // --- Services (per TECHNICAL_TASK.md)
             const Api = {
                 async register(payload) {
@@ -348,7 +379,12 @@
                 },
                 async getToken(publisherId) {
                     const url = `https://api.datify.link/direct-api/get-user-token/${publisherId}`;
-                    const res = await fetchWithRetry(url, { method: 'GET', headers: { 'x-key': X_KEY } });
+                    const ip = await getClientIp();
+                    const res = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
+                        body: JSON.stringify({ ip })
+                    });
                     const data = await res.json().catch(() => ({}));
                     console.info('[getToken] response:', data);
                     return data;
