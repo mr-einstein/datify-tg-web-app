@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datify Registration</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Telegram WebApp Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <style>
+        /* Custom styles to match the dark theme and gold accents */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .form-input, .form-select {
+            background-color: #FFFFFF;
+            color: #111827;
+            border: 1px solid #4B5563;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #FBBF24;
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
+        }
+        .form-label {
+            color: #D1D5DB;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .error-message {
+            color: #F87171;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            min-height: 1rem;
+        }
+        .success-message {
+            color: #10B981;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        .submit-button {
+            background-color: #FBBF24;
+            color: #111827;
+            font-weight: 700;
+            padding: 0.75rem;
+            width: 100%;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .submit-button:hover {
+            background-color: #F59E0B;
+        }
+        .submit-button:disabled {
+            background-color: #9CA3AF;
+            cursor: not-allowed;
+        }
+        .password-requirements {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+            margin-top: 0.25rem;
+        }
+        .requirement-met {
+            color: #10B981;
+        }
+        .requirement-unmet {
+            color: #9CA3AF;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .verification-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
+        }
+    </style>
+    <!-- Google Fonts for a cleaner look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Registration Form Container -->
+    <div id="registrationContainer" class="w-full max-w-md bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl">
+        <h1 class="text-3xl font-bold text-white text-center mb-6">Sign up</h1>
+
+        <form id="registrationForm" novalidate>
+            <!-- Hidden field for Telegram User ID -->
+            <input type="hidden" id="tgId" name="tgId">
+
+            <!-- Login -->
+            <div>
+                <label for="name" class="form-label">Login*</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Your unique login" required>
+                <div id="nameError" class="error-message"></div>
+            </div>
+
+            <!-- E-mail -->
+            <div>
+                <label for="email" class="form-label">E-mail*</label>
+                <input type="email" id="email" name="email" class="form-input" placeholder="example@domain.com" required>
+                <div id="emailError" class="error-message"></div>
+            </div>
+
+            <!-- Password with robust validation -->
+            <div>
+                <label for="password" class="form-label">Password*</label>
+                <input type="password" id="password" name="password" class="form-input" placeholder="Enter a strong password" required>
+                <div id="passwordError" class="error-message"></div>
+                <div id="passwordRequirements" class="password-requirements">
+                    <div id="req-length" class="requirement-unmet">• At least 8 characters</div>
+                    <div id="req-uppercase" class="requirement-unmet">• One uppercase letter</div>
+                    <div id="req-lowercase" class="requirement-unmet">• One lowercase letter</div>
+                    <div id="req-special" class="requirement-unmet">• One special character (!@#$%^&*)</div>
+                </div>
+            </div>
+            
+            <!-- Confirm Password -->
+            <div>
+                <label for="confirmPassword" class="form-label">Confirm Password*</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" placeholder="Repeat your password" required>
+                <div id="confirmPasswordError" class="error-message"></div>
+            </div>
+
+            <!-- Telegram -->
+            <div>
+                <label for="contact_info" class="form-label">Telegram*</label>
+                <input type="text" id="contact_info" name="contact_info" class="form-input" placeholder="@username" required>
+                <div id="contactInfoError" class="error-message"></div>
+            </div>
+
+            <!-- Average Volume -->
+            <div>
+                <label for="average_monthly_volume" class="form-label">What is your average volume per month?*</label>
+                <select id="average_monthly_volume" name="average_monthly_volume" class="form-select" required>
+                    <option value="" disabled selected>Select your volume</option>
+                    <option value="5">&gt; $10 000</option>
+                    <option value="4">$5 000 - $10 000</option>
+                    <option value="3">$1 500 - $5 000</option>
+                    <option value="2">$500 - $1 500</option>
+                    <option value="1">&lt; $500</option>
+                </select>
+                <div id="averageMonthlyVolumeError" class="error-message"></div>
+            </div>
+
+            <!-- Traffic Source -->
+            <div>
+                <label for="expected_traffic_type" class="form-label">Traffic Source*</label>
+                <select id="expected_traffic_type" name="expected_traffic_type" class="form-select" required>
+                    <option value="" disabled selected>Select your traffic source</option>
+                    <option value="1">Email</option>
+                    <option value="2">Social Media</option>
+                    <option value="3">Banner/Display</option>
+                    <option value="4">Push Traffic</option>
+                    <option value="5">Native Traffic</option>
+                    <option value="6">In-app Traffic</option>
+                    <option value="7">SEO</option>
+                    <option value="8">Other</option>
+                </select>
+                <div id="expectedTrafficTypeError" class="error-message"></div>
+            </div>
+
+            <!-- Conditional "Other" Traffic Source Description -->
+            <div id="otherTrafficSourceContainer" class="hidden">
+                <label for="expected_traffic_type_description" class="form-label">Please specify*</label>
+                <input type="text" id="expected_traffic_type_description" name="expected_traffic_type_description" class="form-input" placeholder="Your traffic source">
+                <div id="expectedTrafficTypeDescriptionError" class="error-message"></div>
+            </div>
+
+            <!-- Role -->
+            <div>
+                <label for="activity_type" class="form-label">What is your role?*</label>
+                <select id="activity_type" name="activity_type" class="form-select" required>
+                    <option value="" disabled selected>Select your role</option>
+                    <option value="1">Media Buyer</option>
+                    <option value="2">Network</option>
+                    <option value="3">Media Buying Team</option>
+                    <option value="0">Other</option>
+                </select>
+                <div id="activityTypeError" class="error-message"></div>
+            </div>
+
+            <!-- How did you hear about us? -->
+            <div>
+                <label for="how_hear_about_us" class="form-label">How did you hear about us?*</label>
+                <select id="how_hear_about_us" name="how_hear_about_us" class="form-select" required>
+                    <option value="" disabled selected>Select an option</option>
+                    <option value="Search Engine">Search Engine (Google, Bing, etc.)</option>
+                    <option value="Social Media">Social Media (Instagram, Facebook, Telegram, LinkedIn, etc.)</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="Affiliate Media">Affiliate Media (Affpaying, Partnerkin, etc.)</option>
+                    <option value="Forums">Forums</option>
+                    <option value="Conference / Event">Conference / Event</option>
+                    <option value="Email or Newsletter">Email or Newsletter</option>
+                    <option value="From a Friend">From a Friend / Colleague</option>
+                </select>
+                <div id="howHearAboutUsError" class="error-message"></div>
+            </div>
+
+            <!-- Submission Button -->
+            <div class="mt-8">
+                <button type="submit" id="submitButton" class="submit-button">
+                    Complete the registration process
+                </button>
+            </div>
+            
+            <!-- General message area for success or webhook errors -->
+            <div id="formMessage" class="text-center mt-4 font-medium"></div>
+        </form>
+    </div>
+
+    <!-- Verification Code Container -->
+    <div id="verificationContainer" class="w-full max-w-md bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl hidden">
+        <h1 class="text-3xl font-bold text-white text-center mb-2">Verify Your Email</h1>
+        <p class="text-gray-400 text-center mb-8">Please enter the 6-digit verification code sent to your email address</p>
+
+        <form id="verificationForm" novalidate>
+            <div>
+                <input type="text" 
+                       id="verificationCode" 
+                       name="verificationCode" 
+                       class="form-input verification-input" 
+                       placeholder="000000" 
+                       maxlength="6" 
+                       pattern="[0-9]{6}"
+                       required>
+                <div id="verificationError" class="error-message text-center mt-2"></div>
+            </div>
+
+            <div class="mt-8 space-y-3">
+                <button type="submit" id="verifyButton" class="submit-button">
+                    Verify Email
+                </button>
+                <button type="button" id="resendButton" class="submit-button bg-gray-600 hover:bg-gray-700">
+                    Resend Code
+                </button>
+            </div>
+            
+            <div id="verificationMessage" class="text-center mt-4 font-medium"></div>
+        </form>
+    </div>
+
+    <script>
+        // Configuration constants (per TECHNICAL_TASK.md)
+        const X_KEY = 'Foreword2-Ungenteel1';
+        const N8N_WEBHOOK_TEST = 'https://n8n.1backteam.com/webhook-test/registration1';
+        const N8N_WEBHOOK_PROD = 'https://n8n.1backteam.com/webhook/registration1';
+        const RETRIES = 2; // total attempts = 1 + RETRIES
+        const RETRY_DELAY_MS = 300;
+        const N8N_CHECK_USER = 'https://n8n.1backteam.com/webhook/check_user';
+        const N8N_STAGE1_SUCCESS = 'https://n8n.1backteam.com/webhook/reg_stage1_success';
+        const N8N_STAGE2_SUCCESS = 'https://n8n.1backteam.com/webhook/reg_stage2_success';
+        
+        // State management
+        const AppState = {
+            getStorageKey() {
+                const tgId = document.getElementById('tgId')?.value || 'TEST_USER';
+                return `datify_registration_${tgId}`;
+            },
+            
+            saveState(data) {
+                localStorage.setItem(this.getStorageKey(), JSON.stringify(data));
+            },
+            
+            getState() {
+                const stored = localStorage.getItem(this.getStorageKey());
+                return stored ? JSON.parse(stored) : null;
+            },
+            
+            clearState() {
+                localStorage.removeItem(this.getStorageKey());
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('registrationForm');
+            const submitButton = document.getElementById('submitButton');
+            const formMessage = document.getElementById('formMessage');
+            const registrationContainer = document.getElementById('registrationContainer');
+            const verificationContainer = document.getElementById('verificationContainer');
+            const verificationForm = document.getElementById('verificationForm');
+            const verifyButton = document.getElementById('verifyButton');
+            const resendButton = document.getElementById('resendButton');
+            const verificationMessage = document.getElementById('verificationMessage');
+            
+            let currentPublisherId = null;
+
+            // --- Initialize Telegram WebApp and get User ID ---
+            try {
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                    document.getElementById('tgId').value = tg.initDataUnsafe.user.id;
+                } else {
+                    // Fallback for testing outside Telegram
+                    document.getElementById('tgId').value = '449030745';
+                    console.warn('Telegram User ID not found. Using test tgid 449030745.');
+                }
+            } catch (error) {
+                console.error('Telegram WebApp script not loaded or failed to initialize.', error);
+                document.getElementById('tgId').value = '449030745';
+                formMessage.textContent = 'Could not initialize Telegram features.';
+                formMessage.className = 'text-center mt-4 font-medium text-yellow-400';
+            }
+
+            // --- Helper: Simple delay
+            const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+            // --- Helper: Fetch with retry (non-2xx and network errors)
+            const fetchWithRetry = async (url, options = {}, attempts = RETRIES + 1, delayMs = RETRY_DELAY_MS) => {
+                let lastError = null;
+                for (let i = 1; i <= attempts; i++) {
+                    try {
+                        const res = await fetch(url, options);
+                        if (res.ok) return res;
+                        lastError = new Error(`HTTP ${res.status}: ${await res.text()}`);
+                        console.warn(`[fetchWithRetry] Attempt ${i}/${attempts} failed for ${url}`, lastError);
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`[fetchWithRetry] Attempt ${i}/${attempts} network error for ${url}`, err);
+                    }
+                    if (i < attempts) await sleep(delayMs);
+                }
+                throw lastError;
+            };
+
+            // --- Helper: Get client public IP (cached) ---
+            let CLIENT_IP = null;
+            const getClientIp = async () => {
+                if (CLIENT_IP !== null) return CLIENT_IP;
+                // Provider 1: ipify
+                try {
+                    const res = await fetch('https://api.ipify.org?format=json');
+                    const data = await res.json().catch(() => ({}));
+                    if (data && typeof data.ip === 'string' && data.ip) {
+                        CLIENT_IP = data.ip;
+                        return CLIENT_IP;
+                    }
+                } catch (e) {
+                    console.warn('[getClientIp] ipify failed:', e);
+                }
+                // Provider 2: ifconfig.co
+                try {
+                    const res2 = await fetch('https://ifconfig.co/json');
+                    const data2 = await res2.json().catch(() => ({}));
+                    if (data2 && typeof data2.ip === 'string' && data2.ip) {
+                        CLIENT_IP = data2.ip;
+                        return CLIENT_IP;
+                    }
+                } catch (e2) {
+                    console.warn('[getClientIp] ifconfig.co failed:', e2);
+                }
+                // Fallback
+                CLIENT_IP = '';
+                return CLIENT_IP;
+            };
+
+            // --- Services (per TECHNICAL_TASK.md)
+            const Api = {
+                async register(payload) {
+                    const url = 'https://api.datify.link/direct-api/register';
+                    const res = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    console.info('[register] response:', data);
+                    return data;
+                },
+                async getToken(publisherId) {
+                    const url = `https://api.datify.link/direct-api/get-user-token/${publisherId}`;
+                    const ip = await getClientIp();
+                    const res = await fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
+                        body: JSON.stringify({ ip })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    console.info('[getToken] response:', data);
+                    return data;
+                },
+                async getMe(token) {
+                    const url = 'https://api.datify.link/me';
+                    const res = await fetchWithRetry(url, { method: 'GET', headers: { 'Content-Type': 'application/json', 'authorization': `Bearer ${token}` } });
+                    const data = await res.json().catch(() => ({}));
+                    console.info('[getMe] response:', data);
+                    return data;
+                },
+                async verifyEmail(publisherId, code) {
+                    const url = 'https://api.datify.link/email/verify';
+                    const body = { random: `${publisherId}_${code}` };
+                    const res = await fetchWithRetry(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-key': X_KEY }, body: JSON.stringify(body) });
+                    const data = await res.json().catch(() => ({}));
+                    console.info('[verifyEmail] response:', data);
+                    return data;
+                },
+                async postN8nFinal(finalPayload) {
+                    // Single attempts to BOTH test and production; do not block success
+                    const endpoints = [
+                        { name: 'test', url: N8N_WEBHOOK_TEST },
+                        { name: 'prod', url: N8N_WEBHOOK_PROD },
+                    ];
+                    for (const ep of endpoints) {
+                        try {
+                            const res = await fetch(ep.url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(finalPayload)
+                            });
+                            console.info(`[postN8nFinal:${ep.name}] status:`, res.status);
+                            if (!res.ok) {
+                                const t = await res.text();
+                                console.warn(`[postN8nFinal:${ep.name}] non-2xx:`, t);
+                            }
+                        } catch (err) {
+                            console.warn(`[postN8nFinal:${ep.name}] network error:`, err);
+                        }
+                    }
+                },
+                async checkUser(tgid) {
+                    const res = await fetchWithRetry(N8N_CHECK_USER, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tgid })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    console.info('[checkUser] response:', data);
+                    return data;
+                },
+                async postStage1Success(stage1Payload) {
+                    try {
+                        const res = await fetch(N8N_STAGE1_SUCCESS, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(stage1Payload)
+                        });
+                        console.info('[postStage1Success] status:', res.status);
+                    } catch (err) {
+                        console.warn('[postStage1Success] network error:', err);
+                    }
+                },
+                async postStage2Success(tgid) {
+                    try {
+                        const res = await fetch(N8N_STAGE2_SUCCESS, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tgid })
+                        });
+                        console.info('[postStage2Success] status:', res.status);
+                    } catch (err) {
+                        console.warn('[postStage2Success] network error:', err);
+                    }
+                }
+            };
+
+            // --- Bootstrap (App Open)
+            (async function bootstrap() {
+                try {
+                    const tgIdVal = document.getElementById('tgId')?.value || '449030745';
+                    const check = await Api.checkUser(tgIdVal);
+                    console.debug('[bootstrap] check_user:', check);
+                    if (check?.onboarding_complete === true) {
+                        // Already registered -> show message and close
+                        registrationContainer.classList.remove('hidden');
+                        verificationContainer.classList.add('hidden');
+                        formMessage.textContent = "You're already registered. Please continue to bot.";
+                        formMessage.className = 'text-center mt-4 font-medium text-yellow-400';
+                        setTimeout(() => {
+                            if (window.Telegram?.WebApp?.close) {
+                                window.Telegram.WebApp.close();
+                            }
+                        }, 1000);
+                        return;
+                    }
+                    if (check?.onboarding_complete === false) {
+                        if (!check?.email) {
+                            // Stage 1: registration
+                            showRegistrationScreen();
+                            return;
+                        } else {
+                            // Stage 2: verification
+                            const st = AppState.getState();
+                            if (st?.publisherId) {
+                                currentPublisherId = st.publisherId;
+                            }
+                            showVerificationScreen();
+                            return;
+                        }
+                    }
+                    // Default: show registration
+                    showRegistrationScreen();
+                } catch (e) {
+                    console.error('[bootstrap] unexpected error:', e);
+                    showRegistrationScreen();
+                }
+            })();
+
+            // --- Conditional Logic for "Other" Traffic Source ---
+            const trafficSourceSelect = document.getElementById('expected_traffic_type');
+            const otherTrafficContainer = document.getElementById('otherTrafficSourceContainer');
+            const otherTrafficInput = document.getElementById('expected_traffic_type_description');
+
+            trafficSourceSelect.addEventListener('change', (e) => {
+                if (e.target.value === '8') { // '8' is the value for "Other"
+                    otherTrafficContainer.classList.remove('hidden');
+                    otherTrafficInput.setAttribute('required', 'true');
+                } else {
+                    otherTrafficContainer.classList.add('hidden');
+                    otherTrafficInput.removeAttribute('required');
+                    otherTrafficInput.value = ''; // Clear the value when hidden
+                }
+            });
+
+            // --- Form Validation and Submission ---
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                if (validateForm()) {
+                    await submitForm();
+                }
+            });
+
+            // --- Helper function to display errors ---
+            const setError = (fieldId, message) => {
+                const errorIdMap = {
+                    average_monthly_volume: 'averageMonthlyVolumeError',
+                    expected_traffic_type: 'expectedTrafficTypeError',
+                    expected_traffic_type_description: 'expectedTrafficTypeDescriptionError',
+                    activity_type: 'activityTypeError',
+                    how_hear_about_us: 'howHearAboutUsError',
+                    contact_info: 'contactInfoError',
+                };
+                const errorElementId = errorIdMap[fieldId] || `${fieldId}Error`;
+                const errorElement = document.getElementById(errorElementId);
+                if (errorElement) {
+                    errorElement.textContent = message;
+                }
+                const inputElement = document.getElementById(fieldId);
+                if(inputElement) {
+                    inputElement.classList.add('border-red-400');
+                }
+            };
+
+            // --- Helper function to clear single error ---
+            const clearError = (fieldId) => {
+                const errorIdMap = {
+                    average_monthly_volume: 'averageMonthlyVolumeError',
+                    expected_traffic_type: 'expectedTrafficTypeError',
+                    expected_traffic_type_description: 'expectedTrafficTypeDescriptionError',
+                    activity_type: 'activityTypeError',
+                    how_hear_about_us: 'howHearAboutUsError',
+                    contact_info: 'contactInfoError',
+                };
+                const errorElementId = errorIdMap[fieldId] || `${fieldId}Error`;
+                const errorElement = document.getElementById(errorElementId);
+                if (errorElement) {
+                    errorElement.textContent = '';
+                }
+                const inputElement = document.getElementById(fieldId);
+                if(inputElement) {
+                    inputElement.classList.remove('border-red-400');
+                }
+            };
+
+            // --- Helper function to clear errors ---
+            const clearErrors = () => {
+                const errorMessages = document.querySelectorAll('.error-message');
+                errorMessages.forEach(el => el.textContent = '');
+                
+                const inputs = form.querySelectorAll('.form-input, .form-select');
+                inputs.forEach(el => {
+                    el.classList.remove('border-red-400');
+                    el.classList.add('border-gray-600');
+                });
+                
+                formMessage.textContent = '';
+            };
+
+            // --- Password validation with real-time feedback ---
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirmPassword');
+            
+            const validatePassword = (password) => {
+                const requirements = {
+                    length: password.length >= 8,
+                    uppercase: /[A-Z]/.test(password),
+                    lowercase: /[a-z]/.test(password),
+                    special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+                };
+                
+                // Update visual feedback
+                document.getElementById('req-length').className = requirements.length ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-uppercase').className = requirements.uppercase ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-lowercase').className = requirements.lowercase ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-special').className = requirements.special ? 'requirement-met' : 'requirement-unmet';
+                
+                return requirements.length && requirements.uppercase && requirements.lowercase && requirements.special;
+            };
+            
+            passwordInput.addEventListener('input', (e) => {
+                validatePassword(e.target.value);
+                if (confirmPasswordInput.value) {
+                    if (e.target.value !== confirmPasswordInput.value) {
+                        setError('confirmPassword', 'Passwords do not match.');
+                    } else {
+                        clearError('confirmPassword');
+                    }
+                }
+            });
+            
+            confirmPasswordInput.addEventListener('input', (e) => {
+                if (passwordInput.value && e.target.value !== passwordInput.value) {
+                    setError('confirmPassword', 'Passwords do not match.');
+                } else {
+                    clearError('confirmPassword');
+                }
+            });
+
+            // --- Main Validation Function ---
+            const validateForm = () => {
+                clearErrors();
+                let isValid = true;
+
+                const requiredFields = Array.from(form.querySelectorAll('[required]'));
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        isValid = false;
+                        setError(field.id, 'This field is required.');
+                    }
+                });
+                
+                // Email validation
+                const email = document.getElementById('email');
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (email.value && !emailRegex.test(email.value)) {
+                    isValid = false;
+                    setError('email', 'Please enter a valid email address.');
+                }
+
+                // Enhanced password validation
+                const password = document.getElementById('password');
+                if (password.value) {
+                    if (!validatePassword(password.value)) {
+                        isValid = false;
+                        setError('password', 'Password must meet all requirements.');
+                    }
+                }
+
+                // Password confirmation validation
+                const confirmPassword = document.getElementById('confirmPassword');
+                if (password.value && confirmPassword.value && password.value !== confirmPassword.value) {
+                    isValid = false;
+                    setError('confirmPassword', 'Passwords do not match.');
+                }
+
+                // Telegram username validation
+                const contactInfo = document.getElementById('contact_info');
+                const telegramRegex = /^@[a-zA-Z0-9_]{5,32}$/;
+                if (contactInfo.value && !telegramRegex.test(contactInfo.value)) {
+                    isValid = false;
+                    setError('contact_info', 'Username must start with @ and be 5-32 characters long (a-z, 0-9, _).');
+                }
+
+                return isValid;
+            };
+
+            // --- Show verification screen ---
+            // --- Show registration screen ---
+            const showRegistrationScreen = () => {
+                registrationContainer.classList.remove('hidden');
+                verificationContainer.classList.add('hidden');
+            };
+
+            const showVerificationScreen = () => {
+                registrationContainer.classList.add('hidden');
+                verificationContainer.classList.remove('hidden');
+            };
+
+            // --- Form Submission Function ---
+            const submitForm = async () => {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Submitting...';
+                formMessage.textContent = '';
+
+                // --- Construct the payload (per API spec) ---
+                const formData = new FormData(form);
+                const trafficType = formData.get('expected_traffic_type');
+                const registrationPayload = {
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    password: formData.get('password'),
+                    average_monthly_volume: formData.get('average_monthly_volume'),
+                    activity_type: formData.get('activity_type'),
+                    how_hear_about_us: formData.get('how_hear_about_us'),
+                    contact_info: formData.get('contact_info'),
+                    contact_type: 1,
+                    tgId: formData.get('tgId')
+                };
+                if (trafficType === '8') {
+                    registrationPayload.expected_traffic_type_description = formData.get('expected_traffic_type_description');
+                } else {
+                    registrationPayload.expected_traffic_type = trafficType;
+                }
+
+                try {
+                    const regRes = await Api.register(registrationPayload);
+                    // Expect array with publisher_id
+                    if (Array.isArray(regRes) && regRes[0]?.publisher_id) {
+                        currentPublisherId = regRes[0].publisher_id;
+                    } else if (regRes?.publisher_id) {
+                        currentPublisherId = regRes.publisher_id;
+                    }
+
+                    if (!currentPublisherId) throw new Error('publisher_id not found in response');
+
+                    // Save minimal state and temporarily store password for webhook
+                    const persistedPayload = { ...registrationPayload };
+                    delete persistedPayload.password;
+                    AppState.saveState({
+                        isRegistered: true,
+                        isVerified: false,
+                        publisherId: currentPublisherId,
+                        email: registrationPayload.email,
+                        registrationPayload: persistedPayload,
+                        tempPassword: formData.get('password'),
+                        registeredAt: new Date().toISOString()
+                    });
+
+                    // Notify n8n stage1 success
+                    try {
+                        const tgIdVal = document.getElementById('tgId')?.value || '449030745';
+                        await Api.postStage1Success({ tgid: tgIdVal, publisher_id: currentPublisherId, ...registrationPayload });
+                    } catch (err) {
+                        console.warn('[submitForm] postStage1Success failed:', err);
+                    }
+
+                    formMessage.textContent = 'Registration successful! Checking verification status…';
+                    formMessage.className = 'text-center mt-4 font-medium text-green-400';
+
+                    // Immediately check token + /me
+                    let token = null;
+                    try {
+                        const tokenArr = await Api.getToken(currentPublisherId);
+                        token = Array.isArray(tokenArr) ? tokenArr[0]?.token : tokenArr?.token;
+                        if (token) {
+                            const st = AppState.getState() || {};
+                            st.token = token;
+                            AppState.saveState(st);
+                        }
+                    } catch (e) {
+                        console.error('[submitForm] getToken failed:', e);
+                    }
+
+                    if (token) {
+                        try {
+                            const me = await Api.getMe(token);
+                            const status = me?.status; const stage = me?.stage_status;
+                            if (status === 2 && stage === 1) {
+                                // already verified
+                                const state = AppState.getState();
+                                await handleVerifiedSuccess(state);
+                                return;
+                            }
+                        } catch (e) {
+                            console.error('[submitForm] getMe failed:', e);
+                        }
+                    }
+
+                    // Not verified -> go to code screen
+                    showVerificationScreen();
+                } catch (e) {
+                    console.error('[submitForm] register failed:', e);
+                    formMessage.textContent = 'Registration failed. Please try again later.';
+                    formMessage.className = 'text-center mt-4 font-medium text-red-400';
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Complete the registration process';
+                }
+            };
+            
+            // --- Email Verification Functions ---
+            const verifyEmail = async (code) => {
+                if (!currentPublisherId) {
+                    verificationMessage.textContent = 'Invalid session. Please register again.';
+                    verificationMessage.className = 'text-center mt-4 font-medium text-red-400';
+                    return false;
+                }
+                try {
+                    const res = await Api.verifyEmail(currentPublisherId, code);
+                    const success = Array.isArray(res) ? res[0]?.success === 1 : res?.success === 1;
+                    return !!success;
+                } catch (e) {
+                    console.error('[verifyEmail] failed:', e);
+                    return false;
+                }
+            };
+
+            // Handle verified success: update state, post to n8n, close app
+            const handleVerifiedSuccess = async (state) => {
+                const nowIso = new Date().toISOString();
+                const currentState = state || AppState.getState() || {};
+                currentState.isVerified = true;
+                currentState.verifiedAt = nowIso;
+                AppState.saveState(currentState);
+
+                // Build recommended n8n payload
+                const tgId = document.getElementById('tgId')?.value || 'TEST_USER';
+                const finalPayload = {
+                    publisher_id: currentState.publisherId,
+                    email: currentState.email,
+                    tgId,
+                    verified: true,
+                    verified_at: currentState.verifiedAt,
+                    registered_at: currentState.registeredAt,
+                    registration_payload: currentState.registrationPayload || null,
+                    token: currentState.token || null,
+                    password: currentState.tempPassword || null,
+                    how_hear_about_us: currentState.registrationPayload?.how_hear_about_us || null
+                };
+                await Api.postN8nFinal(finalPayload);
+
+                // Notify n8n stage2 success
+                try {
+                    await Api.postStage2Success(tgId);
+                } catch (e) {
+                    console.warn('[handleVerifiedSuccess] postStage2Success failed:', e);
+                }
+
+                // Clear sensitive temp password after sending to webhook
+                try {
+                    const st = AppState.getState() || {};
+                    if (st.tempPassword) {
+                        delete st.tempPassword;
+                        AppState.saveState(st);
+                    }
+                } catch (e) {
+                    console.warn('[handleVerifiedSuccess] failed to clear tempPassword:', e);
+                }
+
+                verificationMessage.textContent = 'You are already verified! Closing app…';
+                verificationMessage.className = 'text-center mt-4 font-medium text-green-400';
+                setTimeout(() => {
+                    if (window.Telegram?.WebApp?.close) {
+                        window.Telegram.WebApp.close();
+                    }
+                }, 1500);
+            };
+            
+            // --- Verification form submission ---
+            verificationForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                
+                const code = document.getElementById('verificationCode').value;
+                if (!code || code.length !== 6) {
+                    document.getElementById('verificationError').textContent = 'Please enter a 6-digit code.';
+                    return;
+                }
+                
+                verifyButton.disabled = true;
+                verifyButton.textContent = 'Verifying...';
+                document.getElementById('verificationError').textContent = '';
+                
+                const isVerified = await verifyEmail(code);
+                if (isVerified) {
+                    await handleVerifiedSuccess();
+                } else {
+                    document.getElementById('verificationError').textContent = 'Invalid verification code. Please try again.';
+                    verifyButton.disabled = false;
+                    verifyButton.textContent = 'Verify Email';
+                }
+            });
+            
+            // --- Resend code functionality ---
+            resendButton.addEventListener('click', async () => {
+                resendButton.disabled = true;
+                resendButton.textContent = 'Resending...';
+                
+                // In a real implementation, you would call an API to resend the code
+                // For now, we'll just show a message
+                setTimeout(() => {
+                    verificationMessage.textContent = 'Verification code has been resent to your email.';
+                    verificationMessage.className = 'text-center mt-4 font-medium text-yellow-400';
+                    resendButton.disabled = false;
+                    resendButton.textContent = 'Resend Code';
+                    
+                    setTimeout(() => {
+                        verificationMessage.textContent = '';
+                    }, 3000);
+                }, 1500);
+            });
+        });
+    </script>
+
+</body>
+</html>
