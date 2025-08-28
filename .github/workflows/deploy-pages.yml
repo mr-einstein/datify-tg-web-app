@@ -1,0 +1,60 @@
+name: Deploy GitHub Pages (prod + dev)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - index-dev-**
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (prod)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: prodsrc
+
+      - name: Checkout dev branch (index_dev.html)
+        uses: actions/checkout@v4
+        with:
+          ref: index-dev-2025-08-28-1934
+          fetch-depth: 0
+          path: devsrc
+
+      - name: Prepare Pages artifact
+        run: |
+          set -e
+          mkdir -p dist/dev
+          # Prod to root
+          cp prodsrc/index.html dist/index.html
+          # Dev to /dev/
+          cp devsrc/index_dev.html dist/dev/index.html
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
