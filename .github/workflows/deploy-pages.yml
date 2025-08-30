@@ -41,7 +41,14 @@ jobs:
           # Prod to root
           cp prodsrc/index.html dist/index.html
           # Dev to /dev/
-          cp devsrc/index_dev.html dist/dev/index.html
+          # Prefer sanitized main's dev/index.html; fallback to dev branch index_dev.html if not present
+          if [ -f prodsrc/dev/index.html ]; then
+            cp prodsrc/dev/index.html dist/dev/index.html
+          elif [ -f devsrc/index_dev.html ]; then
+            cp devsrc/index_dev.html dist/dev/index.html
+          else
+            echo "No dev index found; /dev will be empty"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
