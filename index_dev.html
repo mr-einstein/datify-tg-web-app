@@ -259,10 +259,7 @@
         const N8N_WEBHOOK_PROD = 'https://n8n.1backteam.com/webhook/registration1';
         const RETRIES = 2; // total attempts = 1 + RETRIES
         const RETRY_DELAY_MS = 300;
-        const N8N_CHECK_USER = 'https://n8n.1backteam.com/webhook/check_user';
-        const N8N_STAGE1_SUCCESS = 'https://n8n.1backteam.com/webhook/reg_stage1_success';
-        const N8N_STAGE2_SUCCESS = 'https://n8n.1backteam.com/webhook/reg_stage2_success';
-        
+
         // State management
         const AppState = {
             getStorageKey() {
@@ -305,12 +302,12 @@
                     document.getElementById('tgId').value = tg.initDataUnsafe.user.id;
                 } else {
                     // Fallback for testing outside Telegram
-                    document.getElementById('tgId').value = '449030745';
-                    console.warn('Telegram User ID not found. Using test tgid 449030745.');
+                    document.getElementById('tgId').value = 'TEST_USER_12345';
+                    console.warn('Telegram User ID not found. Using a test ID.');
                 }
             } catch (error) {
                 console.error('Telegram WebApp script not loaded or failed to initialize.', error);
-                document.getElementById('tgId').value = '449030745';
+                document.getElementById('tgId').value = 'TEST_USER_12345';
                 formMessage.textContent = 'Could not initialize Telegram features.';
                 formMessage.className = 'text-center mt-4 font-medium text-yellow-400';
             }
@@ -429,82 +426,68 @@
                             console.warn(`[postN8nFinal:${ep.name}] network error:`, err);
                         }
                     }
-                },
-                async checkUser(tgid) {
-                    const res = await fetchWithRetry(N8N_CHECK_USER, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tgid })
-                    });
-                    const data = await res.json().catch(() => ({}));
-                    console.info('[checkUser] response:', data);
-                    return data;
-                },
-                async postStage1Success(stage1Payload) {
-                    try {
-                        const res = await fetch(N8N_STAGE1_SUCCESS, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(stage1Payload)
-                        });
-                        console.info('[postStage1Success] status:', res.status);
-                    } catch (err) {
-                        console.warn('[postStage1Success] network error:', err);
-                    }
-                },
-                async postStage2Success(tgid) {
-                    try {
-                        const res = await fetch(N8N_STAGE2_SUCCESS, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tgid })
-                        });
-                        console.info('[postStage2Success] status:', res.status);
-                    } catch (err) {
-                        console.warn('[postStage2Success] network error:', err);
-                    }
                 }
             };
 
             // --- Bootstrap (App Open)
             (async function bootstrap() {
                 try {
-                    const tgIdVal = document.getElementById('tgId')?.value || '449030745';
-                    const check = await Api.checkUser(tgIdVal);
-                    console.debug('[bootstrap] check_user:', check);
-                    if (check?.onboarding_complete === true) {
-                        // Already registered -> show message and close
-                        registrationContainer.classList.remove('hidden');
-                        verificationContainer.classList.add('hidden');
-                        formMessage.textContent = "You're already registered. Please continue to bot.";
-                        formMessage.className = 'text-center mt-4 font-medium text-yellow-400';
-                        setTimeout(() => {
-                            if (window.Telegram?.WebApp?.close) {
-                                window.Telegram.WebApp.close();
+                    const state = AppState.getState();
+                    console.debug('[bootstrap] saved state:', state);
+                    if (state?.publisherId) {
+                        currentPublisherId = state.publisherId;
+                        // Fetch fresh token then /me
+                        let token = null;
+                        try {
+                            const tokenArr = await Api.getToken(currentPublisherId);
+                            token = Array.isArray(tokenArr) ? tokenArr[0]?.token : tokenArr?.token;
+                        } catch (e) {
+                            console.error('[bootstrap] getToken failed:', e);
+                        }
+                        if (token) {
+                            // Persist token for webhook usage
+                            try {
+                                const st = AppState.getState() || {};
+                                st.token = token;
+                                AppState.saveState(st);
+                            } catch (e) {
+                                console.warn('[bootstrap] failed to persist token:', e);
                             }
-                        }, 1000);
-                        return;
-                    }
-                    if (check?.onboarding_complete === false) {
-                        if (!check?.email) {
-                            // Stage 1: registration
-                            showRegistrationScreen();
-                            return;
+                            try {
+                                const me = await Api.getMe(token);
+                                const status = me?.status;
+                                const stage = me?.stage_status;
+                                if (status === 2 && stage === 1) {
+                                    // Already verified
+                                    await handleVerifiedSuccess(state);
+                                    return;
+                                }
+                                if (status === 11 && stage === 7) {
+                                    // Unverified
+                                    showVerificationScreen();
+                                    return;
+                                }
+                                // Default to verification screen if ambiguous
+                                showVerificationScreen();
+                                return;
+                            } catch (e) {
+                                console.error('[bootstrap] getMe failed:', e);
+                                showVerificationScreen();
+                                return;
+                            }
                         } else {
-                            // Stage 2: verification
-                            const st = AppState.getState();
-                            if (st?.publisherId) {
-                                currentPublisherId = st.publisherId;
-                            }
+                            // Token unavailable; require code path
                             showVerificationScreen();
                             return;
                         }
                     }
-                    // Default: show registration
-                    showRegistrationScreen();
+                    // No state: show registration
+                    registrationContainer.classList.remove('hidden');
+                    verificationContainer.classList.add('hidden');
                 } catch (e) {
                     console.error('[bootstrap] unexpected error:', e);
-                    showRegistrationScreen();
+                    registrationContainer.classList.remove('hidden');
+                    verificationContainer.classList.add('hidden');
                 }
             })();
 
@@ -534,16 +517,7 @@
 
             // --- Helper function to display errors ---
             const setError = (fieldId, message) => {
-                const errorIdMap = {
-                    average_monthly_volume: 'averageMonthlyVolumeError',
-                    expected_traffic_type: 'expectedTrafficTypeError',
-                    expected_traffic_type_description: 'expectedTrafficTypeDescriptionError',
-                    activity_type: 'activityTypeError',
-                    how_hear_about_us: 'howHearAboutUsError',
-                    contact_info: 'contactInfoError',
-                };
-                const errorElementId = errorIdMap[fieldId] || `${fieldId}Error`;
-                const errorElement = document.getElementById(errorElementId);
+                const errorElement = document.getElementById(`${fieldId}Error`);
                 if (errorElement) {
                     errorElement.textContent = message;
                 }
@@ -555,16 +529,7 @@
 
             // --- Helper function to clear single error ---
             const clearError = (fieldId) => {
-                const errorIdMap = {
-                    average_monthly_volume: 'averageMonthlyVolumeError',
-                    expected_traffic_type: 'expectedTrafficTypeError',
-                    expected_traffic_type_description: 'expectedTrafficTypeDescriptionError',
-                    activity_type: 'activityTypeError',
-                    how_hear_about_us: 'howHearAboutUsError',
-                    contact_info: 'contactInfoError',
-                };
-                const errorElementId = errorIdMap[fieldId] || `${fieldId}Error`;
-                const errorElement = document.getElementById(errorElementId);
+                const errorElement = document.getElementById(`${fieldId}Error`);
                 if (errorElement) {
                     errorElement.textContent = '';
                 }
@@ -671,19 +636,13 @@
                 const telegramRegex = /^@[a-zA-Z0-9_]{5,32}$/;
                 if (contactInfo.value && !telegramRegex.test(contactInfo.value)) {
                     isValid = false;
-                    setError('contact_info', 'Username must start with @ and be 5-32 characters long (a-z, 0-9, _).');
+                    setError('contactInfo', 'Username must start with @ and be 5-32 characters long (a-z, 0-9, _).');
                 }
 
                 return isValid;
             };
 
             // --- Show verification screen ---
-            // --- Show registration screen ---
-            const showRegistrationScreen = () => {
-                registrationContainer.classList.remove('hidden');
-                verificationContainer.classList.add('hidden');
-            };
-
             const showVerificationScreen = () => {
                 registrationContainer.classList.add('hidden');
                 verificationContainer.classList.remove('hidden');
@@ -738,14 +697,6 @@
                         tempPassword: formData.get('password'),
                         registeredAt: new Date().toISOString()
                     });
-
-                    // Notify n8n stage1 success
-                    try {
-                        const tgIdVal = document.getElementById('tgId')?.value || '449030745';
-                        await Api.postStage1Success({ tgid: tgIdVal, publisher_id: currentPublisherId, ...registrationPayload });
-                    } catch (err) {
-                        console.warn('[submitForm] postStage1Success failed:', err);
-                    }
 
                     formMessage.textContent = 'Registration successful! Checking verification status…';
                     formMessage.className = 'text-center mt-4 font-medium text-green-400';
@@ -831,13 +782,6 @@
                     how_hear_about_us: currentState.registrationPayload?.how_hear_about_us || null
                 };
                 await Api.postN8nFinal(finalPayload);
-
-                // Notify n8n stage2 success
-                try {
-                    await Api.postStage2Success(tgId);
-                } catch (e) {
-                    console.warn('[handleVerifiedSuccess] postStage2Success failed:', e);
-                }
 
                 // Clear sensitive temp password after sending to webhook
                 try {
