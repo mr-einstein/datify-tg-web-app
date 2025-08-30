@@ -390,6 +390,30 @@
                 try { await navigator.clipboard.writeText(Debug.dump()); } catch (e) { /* ignore */ }
             });
 
+            // Auto-open logs on /dev/ and when ?logs=1
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const forceLogs = params.get('logs');
+                if (forceLogs === '1' || (location.pathname || '').includes('/dev/')) {
+                    toggleDebugPanel(true);
+                }
+            } catch {}
+
+            // Triple-tap anywhere to toggle logs (for Telegram Desktop caching/visibility quirks)
+            (function enableTripleTapToggle(){
+                let taps = 0; let timer = null;
+                document.addEventListener('click', () => {
+                    taps++;
+                    if (taps === 1) {
+                        timer = setTimeout(() => { taps = 0; }, 1500);
+                    }
+                    if (taps >= 3) {
+                        toggleDebugPanel();
+                        taps = 0; if (timer) { clearTimeout(timer); timer = null; }
+                    }
+                }, { passive: true });
+            })();
+
             // --- Helper: Fetch with retry (non-2xx and network errors)
             const fetchWithRetry = async (url, options = {}, attempts = RETRIES + 1, delayMs = RETRY_DELAY_MS) => {
                 let lastError = null;
@@ -481,9 +505,10 @@
                 },
                 async resendVerification(email, token) {
                     const url = 'https://api.datify.link/email/verification-notification';
-                    const res = await fetchWithRetry(url, {
+                    // Use plain fetch (no retry) to surface 401/403 to caller for token refresh
+                    const res = await fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'x-key': X_KEY },
                         body: JSON.stringify({ email })
                     });
                     // Capture both JSON (if any) and raw text for diagnostics
@@ -491,8 +516,8 @@
                     try { text = await res.clone().text(); } catch (e) { /* noop */ }
                     let data = null;
                     try { data = await res.json(); } catch (e) { /* possibly 204 No Content */ }
-                    console.info('[resendVerification] status:', res.status, 'data:', data, 'text:', text?.slice(0, 300));
-                    return { status: res.status, data, text };
+                    console.info('[resendVerification] status:', res.status, 'ok:', res.ok, 'data:', data, 'text:', text?.slice(0, 300));
+                    return { status: res.status, ok: res.ok, data, text };
                 },
                 async postN8nFinal(finalPayload) {
                     // Single attempts to BOTH test and production; do not block success
@@ -1059,8 +1084,26 @@
                     }
                     const tokenPreview = typeof token === 'string' ? (token.slice(0, 8) + '…') : 'n/a';
                     Debug.info('resend:request', { email, publisherId: currentPublisherId, tokenPreview });
-                    const r = await Api.resendVerification(email, token);
+                    let r = await Api.resendVerification(email, token);
                     Debug.info('resend:response', { status: r?.status, data: r?.data, text: (r?.text || '').slice(0, 300) });
+                    // If unauthorized/forbidden, fetch a fresh token and retry once
+                    if (r && (r.status === 401 || r.status === 403) && currentPublisherId) {
+                        Debug.warn('resend:unauthorized - refreshing token and retrying once');
+                        try {
+                            const tokenArr2 = await Api.getToken(currentPublisherId);
+                            const newToken = Array.isArray(tokenArr2) ? tokenArr2[0]?.token : tokenArr2?.token;
+                            if (newToken) {
+                                st.token = newToken;
+                                AppState.saveState(st);
+                                const tokenPreview2 = typeof newToken === 'string' ? (newToken.slice(0, 8) + '…') : 'n/a';
+                                Debug.info('resend:retryWithNewToken', { tokenPreview: tokenPreview2 });
+                                r = await Api.resendVerification(email, newToken);
+                                Debug.info('resend:response2', { status: r?.status, data: r?.data, text: (r?.text || '').slice(0, 300) });
+                            }
+                        } catch (e2) {
+                            Debug.error('resend:retryFailed', String(e2));
+                        }
+                    }
                     if (!r || !(r.status >= 200 && r.status < 300)) {
                         throw new Error(`HTTP ${r?.status ?? 'n/a'}: ${(r?.text || '').slice(0, 200)}`);
                     }
