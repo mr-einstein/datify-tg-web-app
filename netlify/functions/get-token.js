@@ -9,7 +9,7 @@ export default async (req, context) => {
     });
   }
 
-  const X_KEY = Netlify.env.get('X_KEY');
+  const X_KEY = (globalThis.Netlify?.env?.get?.('X_KEY')) || process.env.X_KEY;
   if (!X_KEY) {
     return new Response(JSON.stringify({ error: 'Server misconfigured: X_KEY missing' }), {
       status: 500,
@@ -50,7 +50,7 @@ export const config = {
 };
 
 function allowedOrigin() {
-  return Netlify.env.get('ALLOWED_ORIGIN') || '';
+  return (globalThis.Netlify?.env?.get?.('ALLOWED_ORIGIN')) || process.env.ALLOWED_ORIGIN || '';
 }
 
 function baseCorsHeaders() {
