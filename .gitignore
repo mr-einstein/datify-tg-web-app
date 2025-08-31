@@ -1,0 +1,6 @@
+
+# YoYo AI version control directory
+.yoyo/
+
+# Netlify local state (not for user code)
+.netlify/

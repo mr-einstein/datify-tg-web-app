@@ -254,7 +254,8 @@
 
     <script>
         // Configuration constants (per TECHNICAL_TASK.md)
-        const X_KEY = 'Foreword2-Ungenteel1';
+        // X_KEY moved to Netlify serverless functions; do not expose secrets in client.
+        const API_BASE = 'https://datify-tg-proxy-20250831-bc6405a.netlify.app';
         const N8N_WEBHOOK_TEST = 'https://n8n.1backteam.com/webhook-test/registration1';
         const N8N_WEBHOOK_PROD = 'https://n8n.1backteam.com/webhook/registration1';
         const RETRIES = 2; // total attempts = 1 + RETRIES
@@ -381,21 +382,21 @@
             // --- Services (per TECHNICAL_TASK.md)
             const Api = {
                 async register(payload) {
-                    const url = 'https://api.datify.link/direct-api/register';
+                    const url = `${API_BASE}/api/register`;
                     const res = await fetchWithRetry(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
                     const data = await res.json().catch(() => ({}));
                     return data;
                 },
                 async getToken(publisherId) {
-                    const url = `https://api.datify.link/direct-api/get-user-token/${publisherId}`;
+                    const url = `${API_BASE}/api/get-token?publisherId=${publisherId}`;
                     const ip = await getClientIp();
                     const res = await fetchWithRetry(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-key': X_KEY },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ip })
                     });
                     const data = await res.json().catch(() => ({}));
@@ -408,18 +409,18 @@
                     return data;
                 },
                 async verifyEmail(publisherId, code) {
-                    const url = 'https://api.datify.link/email/verify';
+                    const url = `${API_BASE}/api/email/verify`;
                     const body = { random: `${publisherId}_${code}` };
-                    const res = await fetchWithRetry(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-key': X_KEY }, body: JSON.stringify(body) });
+                    const res = await fetchWithRetry(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     const data = await res.json().catch(() => ({}));
                     return data;
                 },
                 async resendVerification(email, token) {
-                    const url = 'https://api.datify.link/email/verification-notification';
+                    const url = `${API_BASE}/api/email/verification-notification`;
                     // Use plain fetch (no retry) to surface 401/403 to caller for token refresh
                     const res = await fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'x-key': X_KEY },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify({ email })
                     });
                     // Capture both JSON (if any) and raw text for diagnostics
