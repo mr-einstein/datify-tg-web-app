@@ -123,7 +123,7 @@
                     <div id="req-length" class="requirement-unmet">• At least 8 characters</div>
                     <div id="req-uppercase" class="requirement-unmet">• One uppercase letter</div>
                     <div id="req-lowercase" class="requirement-unmet">• One lowercase letter</div>
-                    <div id="req-special" class="requirement-unmet">• One special character (!@#$%^&*)</div>
+                    <div id="req-number" class="requirement-unmet">• One number (0-9)</div>
                 </div>
             </div>
             
@@ -607,16 +607,16 @@
                     length: password.length >= 8,
                     uppercase: /[A-Z]/.test(password),
                     lowercase: /[a-z]/.test(password),
-                    special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+                    number: /[0-9]/.test(password)
                 };
                 
                 // Update visual feedback
                 document.getElementById('req-length').className = requirements.length ? 'requirement-met' : 'requirement-unmet';
                 document.getElementById('req-uppercase').className = requirements.uppercase ? 'requirement-met' : 'requirement-unmet';
                 document.getElementById('req-lowercase').className = requirements.lowercase ? 'requirement-met' : 'requirement-unmet';
-                document.getElementById('req-special').className = requirements.special ? 'requirement-met' : 'requirement-unmet';
+                document.getElementById('req-number').className = requirements.number ? 'requirement-met' : 'requirement-unmet';
                 
-                return requirements.length && requirements.uppercase && requirements.lowercase && requirements.special;
+                return requirements.length && requirements.uppercase && requirements.lowercase && requirements.number;
             };
             
             passwordInput.addEventListener('input', (e) => {
