@@ -306,6 +306,14 @@
                 tg.ready();
                 if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
                     document.getElementById('tgId').value = tg.initDataUnsafe.user.id;
+                    // Prefill Telegram username if available
+                    const uname = tg.initDataUnsafe.user.username;
+                    if (uname) {
+                        const contactInput = document.getElementById('contact_info');
+                        if (contactInput && !contactInput.value) {
+                            contactInput.value = '@' + uname;
+                        }
+                    }
                 } else {
                     // Fallback for testing outside Telegram
                     document.getElementById('tgId').value = '449030745';
@@ -677,10 +685,10 @@
 
                 // Telegram username validation
                 const contactInfo = document.getElementById('contact_info');
-                const telegramRegex = /^@[a-zA-Z0-9_]{5,32}$/;
+                const telegramRegex = /^@?[a-zA-Z0-9_]{5,32}$/;
                 if (contactInfo.value && !telegramRegex.test(contactInfo.value)) {
                     isValid = false;
-                    setError('contact_info', 'Username must start with @ and be 5-32 characters long (a-z, 0-9, _).');
+                    setError('contact_info', 'Username must be 5-32 characters long (a-z, 0-9, _). "@" is optional.');
                 }
 
                 return isValid;
@@ -707,6 +715,11 @@
                 // --- Construct the payload (per API spec) ---
                 const formData = new FormData(form);
                 const trafficType = formData.get('expected_traffic_type');
+                // Normalize Telegram username: add '@' if missing
+                let contactVal = (formData.get('contact_info') || '').trim();
+                if (contactVal && !contactVal.startsWith('@')) {
+                    contactVal = '@' + contactVal;
+                }
                 const registrationPayload = {
                     name: formData.get('name'),
                     email: formData.get('email'),
@@ -714,7 +727,7 @@
                     average_monthly_volume: formData.get('average_monthly_volume'),
                     activity_type: formData.get('activity_type'),
                     how_hear_about_us: formData.get('how_hear_about_us'),
-                    contact_info: formData.get('contact_info'),
+                    contact_info: contactVal,
                     contact_type: 1,
                     tgId: formData.get('tgId')
                 };
